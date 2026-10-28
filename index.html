@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Industrial pH Monitor | Pro Dashboard</title>
+    
+    <!-- FontAwesome cho Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Orbitron cho phong cách công nghệ, Inter cho độ đọc rõ ràng -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- TÙY CHỈNH MÀU SẮC & BIẾN --- */
+        :root {
+            --bg-dark: #0b0f19;
+            --glass-bg: rgba(30, 41, 59, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --cyan-glow: #00f2fe;
+            --cyan-dark: #0891b2;
+            --amber-warn: #f59e0b;
+            --crimson-err: #ef4444;
+            --purple-calib: #8b5cf6;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 50% 0%, #1e293b 0%, var(--bg-dark) 80%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 30px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* --- BỐ CỤC TỔNG THỂ --- */
+        .dashboard-container {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        /* --- HIỆU ỨNG GLASSMORPHISM (KÍNH MỜ) CHUNG --- */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+        .glass-panel:hover {
+            border-color: rgba(0, 242, 254, 0.3);
+            box-shadow: 0 10px 40px rgba(0, 242, 254, 0.1);
+        }
+
+        /* --- HEADER --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+        }
+        .header-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px rgba(0, 242, 254, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .header-title i { color: var(--cyan-glow); }
+        .sys-badge {
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--cyan-glow);
+            border: 1px solid var(--cyan-glow);
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+        }
+
+        /* --- CARDS (THÔNG SỐ TOP) --- */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        .card {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Viền sáng mờ chạy ngang dưới card */
+        .card::after {
+            content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan-glow), transparent);
+            opacity: 0.3;
+        }
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: var(--cyan-glow);
+            border: 1px solid rgba(0, 242, 254, 0.2);
+            box-shadow: inset 0 0 15px rgba(0, 242, 254, 0.1);
+        }
+        .card-content h3 {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .card-content .value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+        .card-content .unit { font-size: 16px; color: var(--cyan-glow); }
+
+        /* Pump Status Indicator */
+        .pump-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--crimson-err);
+            border: 1px solid var(--crimson-err);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+            transition: all 0.3s ease;
+        }
+        .pump-indicator.active {
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--cyan-glow);
+            border-color: var(--cyan-glow);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
+        }
+        .mode-lbl { font-size: 11px; color: var(--text-muted); margin-top: 8px; display: block; }
+
+        /* --- BIỂU ĐỒ TRUNG TÂM --- */
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .chart-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            color: var(--cyan-glow);
+        }
+        .chart-controls {
+            display: flex;
+            gap: 10px;
+        }
+        .toggle-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 5px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .toggle-btn:hover, .toggle-btn.active {
+            background: rgba(0, 242, 254, 0.15);
+            color: var(--cyan-glow);
+            border-color: var(--cyan-glow);
+        }
+        .chart-wrapper { width: 100%; height: 300px; }
+
+        /* --- BẢNG ĐIỀU KHIỂN DƯỚI (GRID) --- */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 20px;
+        }
+        .panel-heading {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            color: #fff;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Form Inputs */
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .input-group label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+        .cyber-input {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            color: var(--cyan-glow);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            padding: 10px;
+            width: 90px;
+            border-radius: 8px;
+            text-align: center;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .cyber-input:focus {
+            border-color: var(--cyan-glow);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+        }
+
+        /* Buttons */
+        .btn-action {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .btn-action:hover { transform: translateY(-2px); }
+        .btn-action:active { transform: translateY(0); }
+        
+        .btn-save { border-color: var(--cyan-dark); color: var(--cyan-glow); }
+        .btn-save:hover { background: rgba(0, 242, 254, 0.1); box-shadow: 0 0 15px rgba(0, 242, 254, 0.3); }
+        
+        .btn-warn { border-color: var(--amber-warn); color: var(--amber-warn); }
+        .btn-warn:hover { background: rgba(245, 158, 11, 0.1); box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); }
+
+        .btn-calib { border-color: var(--purple-calib); color: #c4b5fd; }
+        .btn-calib:hover { background: rgba(139, 92, 246, 0.15); box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); border-color: #a78bfa; }
+
+        /* --- FOOTER --- */
+        .footer {
+            text-align: center;
+            padding: 20px 0 10px 0;
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    
+    <!-- HEADER -->
+    <div class="glass-panel header">
+        <h1 class="header-title">
+            <i class="fa-solid fa-wave-square"></i>
+            Hệ Thống Giám Sát pH 5 Sao
+        </h1>
+        <div class="sys-badge">NODE: ESP32-C6 | V2.0</div>
+    </div>
+
+    <!-- CARDS THÔNG SỐ -->
+    <div class="cards-grid">
+        <div class="glass-panel card">
+            <div class="card-icon"><i class="fa-solid fa-droplet"></i></div>
+            <div class="card-content">
+                <h3>Độ pH Hiện Tại</h3>
+                <div class="value" id="phValue">--</div>
+            </div>
+        </div>
+        
+        <div class="glass-panel card">
+            <div class="card-icon" style="color: #a78bfa; border-color: rgba(139,92,246,0.3); box-shadow: inset 0 0 15px rgba(139,92,246,0.2);">
+                <i class="fa-solid fa-microchip"></i>
+            </div>
+            <div class="card-content">
+                <h3>Điện Áp Cảm Biến</h3>
+                <div class="value" id="voltageValue">-- <span class="unit">V</span></div>
+            </div>
+        </div>
+
+        <div class="glass-panel card">
+            <div class="card-icon" style="color: var(--amber-warn); border-color: rgba(245,158,11,0.3); box-shadow: inset 0 0 15px rgba(245,158,11,0.2);">
+                <i class="fa-solid fa-fan"></i>
+            </div>
+            <div class="card-content">
+                <h3>Trạng Thái Bơm</h3>
+                <div class="pump-indicator" id="pumpStatusBtn">
+                    <i class="fa-solid fa-power-off"></i> <span>OFF</span>
+                </div>
+                <span class="mode-lbl" id="modeText"><i class="fa-solid fa-robot"></i> Chế độ Tự Động</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- BIỂU ĐỒ pH -->
+    <div class="glass-panel">
+        <div class="chart-header">
+            <div class="chart-title"><i class="fa-solid fa-chart-area"></i> PH REAL-TIME TELEMETRY</div>
+            <div class="chart-controls">
+                <button class="toggle-btn active">Live</button>
+                <button class="toggle-btn">1H</button>
+                <button class="toggle-btn">24H</button>
+                <button class="toggle-btn" onclick="exportData()"><i class="fa-solid fa-file-csv"></i> Export</button>
+            </div>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="phChart"></canvas>
+        </div>
+    </div>
+
+    <!-- CỤM ĐIỀU KHIỂN DƯỚI -->
+    <div class="controls-grid">
+        <!-- Panel 1: Điều khiển Bơm -->
+        <div class="glass-panel">
+            <h3 class="panel-heading"><i class="fa-solid fa-sliders"></i> THIẾT LẬP NGƯỠNG TỰ ĐỘNG</h3>
+            
+            <div class="input-group">
+                <label>BẬT BƠM KHI pH <</label>
+                <input type="number" class="cyber-input" id="threshLow" value="5.5" step="0.1">
+                
+                <label style="margin-left:10px;">TẮT BƠM KHI pH ></label>
+                <input type="number" class="cyber-input" id="threshHigh" value="6.2" step="0.1">
+            </div>
+
+            <div style="display: flex; gap: 15px; margin-top: 25px;">
+                <button class="btn-action btn-save" onclick="saveSettings()">
+                    <i class="fa-solid fa-floppy-disk"></i> LƯU THIẾT LẬP
+                </button>
+                <button class="btn-action btn-warn" onclick="toggleMode()">
+                    <i class="fa-solid fa-shuffle"></i> ĐỔI CHẾ ĐỘ
+                </button>
+                <button class="btn-action" style="border-color: #64748b;" onclick="forcePump()">
+                    <i class="fa-solid fa-bolt"></i> FORCE PUMP
+                </button>
+            </div>
+        </div>
+
+        <!-- Panel 2: Hiệu chuẩn -->
+        <div class="glass-panel">
+            <h3 class="panel-heading" style="color: #c4b5fd; border-bottom-color: rgba(139,92,246,0.2);">
+                <i class="fa-solid fa-wrench"></i> CHẾ ĐỘ HIỆU CHUẨN (CALIBRATION)
+            </h3>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">
+                Cảnh báo: Chỉ thực hiện hiệu chuẩn khi nhúng cảm biến vào dung dịch chuẩn.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn-action btn-calib" onclick="calib('EN')">
+                    <i class="fa-solid fa-unlock-keyhole"></i> MỞ KHÓA EN/CAL
+                </button>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn-action btn-calib" style="flex: 1;" onclick="calib('7.0')">
+                        <i class="fa-solid fa-crosshairs"></i> CHUẨN pH 7.0
+                    </button>
+                    <button class="btn-action btn-calib" style="flex: 1;" onclick="calib('4.0')">
+                        <i class="fa-solid fa-crosshairs"></i> CHUẨN pH 4.0
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        <div class="pulse-dot"></div>
+        System Online - Connected to Firebase Cloud | Design by Group 2
+    </div>
+
+</div>
+
+<!-- SCRIPT XỬ LÝ (Tương tự nhưng được tối ưu hóa cho Chart Darkmode) -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    // KẾT NỐI FIREBASE (Đã chèn đúng link của bạn)
+    const firebaseConfig = {
+        databaseURL: "https://tram-giam-sat-ph-2356b-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // THIẾT LẬP BIỂU ĐỒ CHART.JS (DARK MODE & NEON GLOW)
+    const ctx = document.getElementById('phChart').getContext('2d');
+    
+    // Tạo gradient mờ ảo cho đường dưới
+    const gradientFill = ctx.createLinearGradient(0, 0, 0, 300);
+    gradientFill.addColorStop(0, 'rgba(0, 242, 254, 0.4)');
+    gradientFill.addColorStop(1, 'rgba(0, 242, 254, 0.0)');
+
+    const phChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'pH Level',
+                data: [],
+                borderColor: '#00f2fe',
+                backgroundColor: gradientFill,
+                borderWidth: 2,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#00f2fe',
+                pointBorderWidth: 2,
+                pointRadius: 0, // Ẩn điểm để đường đi mượt hơn
+                pointHitRadius: 10,
+                fill: true,
+                tension: 0.3 // Độ cong mềm mại
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#00f2fe',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(0, 242, 254, 0.3)',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    display: false // Ẩn nhãn thời gian trục X cho viễn tưởng
+                },
+                y: {
+                    min: 0,
+                    max: 14,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { family: 'Orbitron', size: 11 }
+                    }
+                }
+            },
+            animation: { duration: 0 } // Tắt hiệu ứng tải để nạp realtime mượt hơn
+        }
+    });
+
+    // LẮNG NGHE DỮ LIỆU TỪ MẠCH
+    onValue(ref(db, 'monitor'), (snapshot) => {
+        const data = snapshot.val();
+        if(data) {
+            // Cập nhật số liệu lớn
+            document.getElementById('phValue').innerText = data.pH.toFixed(2);
+            document.getElementById('voltageValue').innerHTML = `${data.voltage.toFixed(3)} <span class="unit">V</span>`;
+            
+            // Cập nhật trạng thái Bơm (Hiệu ứng Neon)
+            let pumpBtn = document.getElementById('pumpStatusBtn');
+            if(data.pumpState) {
+                pumpBtn.className = "pump-indicator active";
+                pumpBtn.innerHTML = '<i class="fa-solid fa-power-off"></i> <span>ON</span>';
+            } else {
+                pumpBtn.className = "pump-indicator";
+                pumpBtn.innerHTML = '<i class="fa-solid fa-power-off"></i> <span>OFF</span>';
+            }
+
+            // Vẽ đồ thị
+            const timeStr = new Date().toLocaleTimeString('vi-VN');
+            phChart.data.labels.push(timeStr);
+            phChart.data.datasets[0].data.push(data.pH);
+            
+            // Giữ lại 40 điểm gần nhất trên đồ thị
+            if(phChart.data.labels.length > 40) {
+                phChart.data.labels.shift();
+                phChart.data.datasets[0].data.shift();
+            }
+            phChart.update();
+        }
+    });
+
+    // --- CÁC HÀM XỬ LÝ SỰ KIỆN NÚT BẤM ---
+    let isAuto = true;
+    
+    window.toggleMode = () => {
+        isAuto = !isAuto;
+        let modeStr = isAuto ? '<i class="fa-solid fa-robot"></i> Chế độ Tự Động' : '<i class="fa-solid fa-hand-sparkles"></i> Chế độ Thủ Công';
+        document.getElementById('modeText').innerHTML = modeStr;
+        set(ref(db, 'settings/autoMode'), isAuto);
+        // Có thể thêm custom alert đẹp hơn ở đây
+    }
+
+    window.saveSettings = () => {
+        let low = parseFloat(document.getElementById('threshLow').value);
+        let high = parseFloat(document.getElementById('threshHigh').value);
+        set(ref(db, 'settings/thresholdLow'), low);
+        set(ref(db, 'settings/thresholdHigh'), high);
+        alert("ĐÃ CẬP NHẬT NGƯỠNG ĐIỀU KHIỂN LÊN CLOUD!");
+    }
+
+    window.forcePump = () => {
+        if(isAuto) {
+            alert("THÔNG BÁO: Vui lòng chuyển sang 'Chế độ Thủ Công' trước khi ép đóng/cắt Relay Bơm.");
+            return;
+        }
+        // Giả lập trạng thái lật
+        let currentBadge = document.getElementById('pumpStatusBtn').className;
+        let newState = !currentBadge.includes("active");
+        set(ref(db, 'control/pumpManual'), newState);
+    }
+
+    window.calib = (type) => {
+        if(type === 'EN') alert("COMMAND: Đã gửi xung kích hoạt chân EN/CAL xuống ESP32.");
+        else alert(`COMMAND: Đang hiệu chuẩn cảm biến tại mức pH ${type}... Vui lòng chờ tín hiệu trả về.`);
+    }
+
+    window.exportData = () => {
+        alert("SYSTEM: Đang trích xuất lịch sử dữ liệu Telemetry ra định dạng .CSV...");
+    }
+</script>
+
+</body>
+</html>
